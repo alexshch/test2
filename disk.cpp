@@ -24,6 +24,7 @@ int main()
 	cout<<"size of bitmap: "<<sizeof(h1)<<endl;
 	ofstream ofs("disk.dat", std::ios::binary);
 	ofs.write(reinterpret_cast<char*>(&h1), sizeof(h1));
+	int  i = 0;
 	ofs.close();
 	system("pause");
 	return 0;
