@@ -2,6 +2,8 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <fcntl.h>
+#include <io.h>
 using namespace std;
 //размер диска 10 КБайт
 //размер сегмента 512 Байт -> количество сегментов 10 *1024 /512 = 20
@@ -43,6 +45,30 @@ int createFolder(string _folderName);
 int changeFolder(string _folderName);
 int goPriveousFolder();
 void tryParseCommand(string command);
+void showHelp();
+void showMemory();
+void showHead(Head h);
+void showRecordInFolder(FileName fn);
+
+int main()
+{
+	if (access("disk.dat",0) == -1){
+		createDisk();
+	}
+	else {
+		cout<<"disk already exist"<<endl;
+	}
+	string command;
+	for(;;){
+		getline(cin, command);
+		if ((command.compare("exit") == 0) || (command.compare("quit") == 0))
+			break;
+		tryParseCommand(command);
+	}
+	//system("pause");
+	return 0;
+}
+
 void showMemory()
 {
 	ifstream ifs;
@@ -58,30 +84,16 @@ void showMemory()
 	}
 	ifs.close();
 }
- void showHead(Head h)
- {
-	 cout<<"num segment: "<<h.numSegment<<endl<<"seg mode:    "<<h.segmentState<<endl<<"seg size:    "<<h.dataSize<<endl;
- }
- void showRecordInFolder(FileName fn)
- {
-	 cout<<"name: "<<fn.name<<" adr: "<<fn.segment<<endl;
- }
 
-int main()
+void showHead(Head h)
 {
-	createDisk();
-	string command;
-	for(;;){
-		getline(cin, command);
-		if ((command.compare("exit") == 0) || (command.compare("quit") == 0))
-			break;
-		tryParseCommand(command);
-	}
-	system("pause");
-	return 0;
+	cout<<"num segment: "<<h.numSegment<<endl<<"seg mode:    "<<h.segmentState<<endl<<"seg size:    "<<h.dataSize<<endl;
 }
 
-
+void showRecordInFolder(FileName fn)
+{
+	cout<<fn.name<<endl;
+}
 
 int searchFreeSegment()
 {
@@ -106,6 +118,8 @@ int searchFreeSegment()
 
 void createDisk()
 {
+	currentDir = 0;
+	directories.clear();
 	Head folder;
 	folder.numSegment		= 0;
 	folder.segmentState		= 2;
@@ -145,7 +159,6 @@ int createFile(string _fileName)
 	FileName fileRead;
 	for (int i = 0; i< numberOfRecords; i++){
 		fstr.read(reinterpret_cast<char*>(&fileRead), sizeof(fileRead));
-		showRecordInFolder(fileRead);
 		fileVector.push_back(fileRead);
 	}
 	vector<FileName>::iterator iter;
@@ -204,7 +217,6 @@ int writeInFile(string fileNameShouldBeOpen)
 	FileName fileRead;
 	for (int i = 0; i< numberOfRecords; i++){
 		fstr.read(reinterpret_cast<char*>(&fileRead), sizeof(fileRead));
-		showRecordInFolder(fileRead);
 		fileVector.push_back(fileRead);
 	}
 	vector<FileName>::iterator iter;
@@ -224,13 +236,12 @@ int writeInFile(string fileNameShouldBeOpen)
 	cout<<"Type a text"<<endl;
 	string textInfilel;
 	getline(cin,textInfilel);
-	cout<<"you have entered: "<< textInfilel<<endl<<"size: "<<textInfilel.size()<<endl;
 	if (textInfilel.size() <= BUFSIZE){
 		fstr.seekg(adress * SIZEOFCLUSTER, ios::beg);
 		Head headFileForWriting;
 		fstr.read(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
 		headFileForWriting.dataSize = textInfilel.size() + 1; // + null symbol
-		cout<<"text size :"<<headFileForWriting.dataSize<<endl;
+		//cout<<"text size :"<<headFileForWriting.dataSize<<endl;
 		fstr.seekp(adress * SIZEOFCLUSTER, ios::beg);
 		fstr.write(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
 		fstr.write(textInfilel.c_str(), textInfilel.size());
@@ -330,7 +341,6 @@ int createFolder(string _folderName)
 	FileName fileRead;
 	for (int i = 0; i< numberOfRecords; i++){
 		fstr.read(reinterpret_cast<char*>(&fileRead), sizeof(fileRead));
-		showRecordInFolder(fileRead);
 		fileVector.push_back(fileRead);
 	}
 	vector<FileName>::iterator iter;
@@ -420,6 +430,19 @@ int goPriveousFolder()
 	return 1;
 }
 
+void showHelp()
+{
+	cout<<"mkdir <folder> - create folder"<<endl<<
+		"touch <file> - create file"<<endl<<
+		"write <file> - write information in file"<<endl<<
+		"read <file>  - read information from file"<<endl<<
+		"ls           - show files and folders in current directory"<<endl<<
+		"cd <folder>  - change directory"<<endl<<
+		"cd ..        - go to previous directory"<<endl<<
+		"format disk  - clear disk"<<endl<<
+		"show memory  - memory state"<<endl;
+}
+
 void tryParseCommand(string command)
 {
 	if (command.compare("cd ..") == 0){
@@ -458,6 +481,9 @@ void tryParseCommand(string command)
 	}
 	else if (command.compare("show memory") == 0) {
 		showMemory();
+	}
+	else if (command.compare("help") == 0) {
+		showHelp();
 	}
 	else {
 		cout<<"nonexistent command"<<endl;
