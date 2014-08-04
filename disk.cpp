@@ -2,7 +2,6 @@
 #include <fstream>
 #include <vector>
 #include <string>
-#include <fcntl.h>
 #include <io.h>
 using namespace std;
 //размер диска 10 КБайт
@@ -440,7 +439,8 @@ void showHelp()
 		"cd <folder>  - change directory"<<endl<<
 		"cd ..        - go to previous directory"<<endl<<
 		"format disk  - clear disk"<<endl<<
-		"show memory  - memory state"<<endl;
+		"show memory  - memory state"<<endl<<
+		"length of <file> and <folder> should be equal 7"<<endl;
 }
 
 void tryParseCommand(string command)
