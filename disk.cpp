@@ -42,6 +42,7 @@ void showFilesInCurrentDirectory();
 int createFolder(string _folderName);
 int changeFolder(string _folderName);
 int goPriveousFolder();
+void tryParseCommand(string command);
 void showMemory()
 {
 	ifstream ifs;
@@ -69,27 +70,13 @@ void showMemory()
 int main()
 {
 	createDisk();
-	createFile("asd.txt");
-	createFile("xxx.txt");
-	createFile("aaa.txt");
-	createFile("bbb.txt");
-	writeInFile("asd.txt");
-	writeInFile("xxy.txt");
-	createFolder("bestfff");
-	readFromFile("asd.txt");
-	cout<<"show files in folder"<< endl;
-	showFilesInCurrentDirectory();
-	changeFolder("bestfff");
-	createFile("bbb.txt");
-	createFolder("bestfff");
-	cout<<"show files in folder"<< endl;
-	showFilesInCurrentDirectory();
-
-	goPriveousFolder();
-	cout<<"show files in priveous folder"<< endl;
-	showFilesInCurrentDirectory();
-
-	//showMemory();
+	string command;
+	for(;;){
+		getline(cin, command);
+		if ((command.compare("exit") == 0) || (command.compare("quit") == 0))
+			break;
+		tryParseCommand(command);
+	}
 	system("pause");
 	return 0;
 }
@@ -152,6 +139,25 @@ int createFile(string _fileName)
 	fstr.open("disk.dat", ios::binary |ios::in | ios::out);
 	fstr.seekg(currentDir * SIZEOFCLUSTER);
 	fstr.read(reinterpret_cast<char*>(&headCurrentFolder), sizeof(headCurrentFolder));
+	//проверка на существование
+	vector<FileName> fileVector;
+	unsigned short numberOfRecords = (unsigned short) (headCurrentFolder.dataSize /sizeof(FileName));
+	FileName fileRead;
+	for (int i = 0; i< numberOfRecords; i++){
+		fstr.read(reinterpret_cast<char*>(&fileRead), sizeof(fileRead));
+		showRecordInFolder(fileRead);
+		fileVector.push_back(fileRead);
+	}
+	vector<FileName>::iterator iter;
+	unsigned short adress =0;
+	for(iter = fileVector.begin(); iter!=fileVector.end(); iter++){
+		string tempStr((*iter).name);
+		if (tempStr.compare(0,8,_fileName, 0,8) == 0){
+			cout<<"file already exist"<<endl;
+			return -1;
+		}
+	}
+	//конец проверки
 	int resultOfSearch = searchFreeSegment();
 	unsigned short offset = 0; 
 	if (resultOfSearch == -1)
@@ -162,10 +168,10 @@ int createFile(string _fileName)
 	}
 	else {
 		offset = headCurrentFolder.dataSize;
-		cout<<"offset: "<<offset<<endl;
+		//cout<<"offset: "<<offset<<endl;
 		headCurrentFolder.dataSize += 10;
 		fstr.seekp(currentDir * SIZEOFCLUSTER);//currentDir
-		showHead(headCurrentFolder);
+		//showHead(headCurrentFolder);
 		fstr.write(reinterpret_cast<char*>(&headCurrentFolder), sizeof(headCurrentFolder));
 		fstr.seekp(offset, ios::cur);
 		FileName filename;
@@ -272,11 +278,16 @@ int readFromFile(string fileShouldBeOpen)
 	fstr.seekg(adress * SIZEOFCLUSTER, ios::beg);
 	Head headFileForReading;
 	fstr.read(reinterpret_cast<char*>(&headFileForReading), sizeof(headFileForReading));
+	if (headFileForReading.dataSize == 0) {
+		cout<<"file is empty"<<endl;
+		fstr.close();
+		return -1;
+	}
 	if (headFileForReading.dataSize <= BUFSIZE){
 		char buffer[BUFSIZE];
 		fstr.read(reinterpret_cast<char*>(buffer), headFileForReading.dataSize );
 		string strFromFile(buffer);
-		cout<<"We read: "<<strFromFile<<endl;
+		cout<<strFromFile<<endl;
 	}
 	else {
 		cout<<"Now we haven't such ability"<<endl;
@@ -313,6 +324,25 @@ int createFolder(string _folderName)
 	fstr.seekg(currentDir * SIZEOFCLUSTER);
 	fstr.read(reinterpret_cast<char*>(&headCurrentFolder), sizeof(headCurrentFolder));
 	int resultOfSearch = searchFreeSegment();
+	//проверка на существование
+	vector<FileName> fileVector;
+	unsigned short numberOfRecords = (unsigned short) (headCurrentFolder.dataSize /sizeof(FileName));
+	FileName fileRead;
+	for (int i = 0; i< numberOfRecords; i++){
+		fstr.read(reinterpret_cast<char*>(&fileRead), sizeof(fileRead));
+		showRecordInFolder(fileRead);
+		fileVector.push_back(fileRead);
+	}
+	vector<FileName>::iterator iter;
+	unsigned short adress =0;
+	for(iter = fileVector.begin(); iter!=fileVector.end(); iter++){
+		string tempStr((*iter).name);
+		if (tempStr.compare(0,8,_folderName, 0,8) == 0){
+			cout<<"folder already exist"<<endl;
+			return -1;
+		}
+	}
+	//конец проверки
 	unsigned short offset = 0; 
 	if (resultOfSearch == -1)
 		return -1;
@@ -322,10 +352,10 @@ int createFolder(string _folderName)
 	}
 	else {
 		offset = headCurrentFolder.dataSize;
-		cout<<"offset: "<<offset<<endl;
+		//cout<<"offset: "<<offset<<endl;
 		headCurrentFolder.dataSize += sizeof(FileName);
 		fstr.seekp(currentDir * SIZEOFCLUSTER);//currentDir
-		showHead(headCurrentFolder);
+		//showHead(headCurrentFolder);
 		fstr.write(reinterpret_cast<char*>(&headCurrentFolder), sizeof(headCurrentFolder));
 		fstr.seekp(offset, ios::cur);
 		FileName filename;
@@ -388,4 +418,48 @@ int goPriveousFolder()
 		cout<<"you are in root"<<endl;
 	}
 	return 1;
+}
+
+void tryParseCommand(string command)
+{
+	if (command.compare("cd ..") == 0){
+		goPriveousFolder();
+	}
+	else if (command.compare("format disk") == 0){
+		createDisk();
+	}
+	else if ((command.compare(0,5,"touch", 0,5) == 0) && (command.find(' ') ==5) && (command.find('.') >=9) && (command.size() == 13))
+	{
+		string arg = command.substr(6, 12);
+		createFile(arg);
+	}
+	else if ((command.compare(0,5,"mkdir", 0,5)== 0) && (command.find(' ') ==5) && (command.find('.') == -1) && (command.size() == 13))
+	{
+		string arg = command.substr(6, 12);
+		createFolder(arg);
+	}
+	else if ((command.compare(0,5,"write", 0,5) == 0) && (command.find(' ') ==5) && (command.find('.') >= 9) && (command.size() == 13))
+	{
+		string arg = command.substr(6, 12);
+		writeInFile(arg);
+	}
+	else if ((command.compare(0,4,"read", 0,4) == 0) && (command.find(' ') ==4) && (command.find('.') >= 8) && (command.size() == 12))
+	{
+		string arg = command.substr(5, 11);
+		readFromFile(arg);
+	}
+	else if ((command.compare(0,2,"ls",0,2) == 0) && (command.size() == 2)) {
+		showFilesInCurrentDirectory();
+	}
+	else if ((command.compare(0,2,"cd", 0,2) == 0) && (command.find(' ') ==2) && (command.find('.') == -1) && (command.size() == 10))
+	{
+		string arg = command.substr(3, 10);
+		changeFolder(arg);
+	}
+	else if (command.compare("show memory") == 0) {
+		showMemory();
+	}
+	else {
+		cout<<"nonexistent command"<<endl;
+	}
 }
