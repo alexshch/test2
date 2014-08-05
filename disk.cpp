@@ -2,7 +2,10 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <math.h>
 #include <io.h>
+//#include "writeinfile.h"
+
 using namespace std;
 //размер диска 10 КБайт
 //размер сегмента 512 Байт -> количество сегментов 10 *1024 /512 = 20
@@ -12,9 +15,9 @@ using namespace std;
 // 7 - 31 бит - размер записей в файле/папке. 2^25 -  максимальный допустимый размер файла/папки 33 554 432 байт
 // на смом деле понятно что максимальный размер записи 19*506 = 9614 символа
 //размер int 32 bits
-//в конце каждого сегмента последние 4 байта  - это или FFFF, если не требуется перенос данных в другой сегмент 
+//в конце каждого сегмента последние 2 байта  - это или FFFF, если не требуется перенос данных в другой сегмент 
 //или адресс следующего сегмента (1 - 20) 
-// 512 - 4 - 2 = 506 байта (504 символа в кодах ASCII) помещается в сегмент. В принципе дохера. 
+// 512 - 4 - 2 = 506 байта (505 символа в кодах ASCII) помещается в сегмент. В принципе дохера. 
 // текущая директория сохраняется в list<unsigned short> currentDir
 struct Head
 {
@@ -48,23 +51,39 @@ void showHelp();
 void showMemory();
 void showHead(Head h);
 void showRecordInFolder(FileName fn);
+int searchNeedNumberOfSegments(unsigned int numbedOfSegment);
 
 int main()
 {
-	if (access("disk.dat",0) == -1){
+	if (0){
+		if (_access("disk.dat",0) == -1){
+			createDisk();
+		}
+		else {
+			cout<<"disk already exist"<<endl;
+		}
+		string command;
+		for(;;){
+			getline(cin, command);
+			if ((command.compare("exit") == 0) || (command.compare("quit") == 0))
+				break;
+			tryParseCommand(command);
+		}
+	}
+	else
+	{
 		createDisk();
+		createFile("txt.txt");
+		writeInFile("txt.txt");
+		showMemory();
+		/*string str1 = "I love Mom";
+		string str2 = str1.substr(0, 3);
+		string str3 = str1.substr(3, str1.size());
+		cout<<str1.size()<<endl<<
+			str2<< " :"<<str2.size()<<endl<<
+			str3<<" :"<<str3.size()<<endl;*/
 	}
-	else {
-		cout<<"disk already exist"<<endl;
-	}
-	string command;
-	for(;;){
-		getline(cin, command);
-		if ((command.compare("exit") == 0) || (command.compare("quit") == 0))
-			break;
-		tryParseCommand(command);
-	}
-	//system("pause");
+	system("pause");
 	return 0;
 }
 
@@ -188,7 +207,7 @@ int createFile(string _fileName)
 		fstr.seekp(offset, ios::cur);
 		FileName filename;
 		char* str = const_cast<char*>(_fileName.c_str());
-		strcpy(filename.name, str);
+		strcpy_s(filename.name, str);
 		filename.segment = resultOfSearch;
 		fstr.write(reinterpret_cast<char*>(&filename),sizeof(filename));
 		//fstr.seekp(0);
@@ -233,21 +252,63 @@ int writeInFile(string fileNameShouldBeOpen)
 		return -1; //
 	}
 	cout<<"Type a text"<<endl;
-	string textInfilel;
-	getline(cin,textInfilel);
-	if (textInfilel.size() <= BUFSIZE){
+	string textInFile;
+	getline(cin,textInFile);
+	if (textInFile.size() <= BUFSIZE -1){
 		fstr.seekg(adress * SIZEOFCLUSTER, ios::beg);
 		Head headFileForWriting;
 		fstr.read(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
-		headFileForWriting.dataSize = textInfilel.size() + 1; // + null symbol
-		//cout<<"text size :"<<headFileForWriting.dataSize<<endl;
+		headFileForWriting.dataSize = textInFile.size() + 1; // + null symbol
 		fstr.seekp(adress * SIZEOFCLUSTER, ios::beg);
 		fstr.write(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
-		fstr.write(textInfilel.c_str(), textInfilel.size());
-		
+		fstr.write(textInFile.c_str(), textInFile.size());	
 	}
 	else {
-		cout<<"this case haven't been described yet"<<endl;
+		unsigned int blocksNumber= (unsigned int)(ceil((double)textInFile.size()/BUFSIZE));
+		if (searchNeedNumberOfSegments(blocksNumber) == -1){
+			cout<<"It is haven't enough memory for writing"<<endl;
+			fstr.close();
+			return -1;
+		}
+
+		for(unsigned int i =0; i < blocksNumber; i++ ){
+			//записываем первый кусок по найденному адресу
+			fstr.seekg(adress * SIZEOFCLUSTER, ios::beg);
+			Head headFileForWriting;
+			fstr.read(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
+			headFileForWriting.dataSize = textInFile.size() + 1; // + null symbol
+			headFileForWriting.segmentState = 1;
+			fstr.seekp(adress * SIZEOFCLUSTER, ios::beg);
+			fstr.write(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
+			string currentWritingStr;
+			if (textInFile.size()>BUFSIZE -1){
+				currentWritingStr = textInFile.substr(0, BUFSIZE);
+			}
+			else {
+				currentWritingStr =  textInFile;
+			}
+			fstr.write(currentWritingStr.c_str(), currentWritingStr.size());
+			unsigned short nextAddress =  searchFreeSegment();
+			cout<<"nextAddress: "<<nextAddress<<endl;
+			// пишем адресс следущего сегмента в конец текущего сегмента
+			if(textInFile.size()> (BUFSIZE - 1)){ 
+				//fstr.seekp(0);
+				//fstr.seekp((adress * SIZEOFCLUSTER) + BUFSIZE);			
+				fstr.write(reinterpret_cast<char* >(&nextAddress), 2);
+				adress = nextAddress;
+				//уменьшаем строку
+				textInFile = textInFile.substr(BUFSIZE-1, textInFile.size());
+				Head headExtensionSegment;
+				headExtensionSegment.numSegment =	adress;
+				headExtensionSegment.dataSize =		textInFile.size();
+				headExtensionSegment.segmentState = 1;
+				fstr.seekp(adress * SIZEOFCLUSTER , ios::beg);	
+				fstr.write(reinterpret_cast<char*>(&headExtensionSegment), sizeof(headExtensionSegment));		
+			}
+			adress = nextAddress;
+
+		}
+		cout<<"the owerflow segment was"<<endl;
 	}
 
 
@@ -369,7 +430,7 @@ int createFolder(string _folderName)
 		fstr.seekp(offset, ios::cur);
 		FileName filename;
 		char* str = const_cast<char*>(_folderName.c_str());
-		strcpy(filename.name, str);
+		strcpy_s(filename.name, str);
 		filename.segment = resultOfSearch;
 		fstr.write(reinterpret_cast<char*>(&filename),sizeof(filename));
 		//fstr.seekp(0);
@@ -440,7 +501,10 @@ void showHelp()
 		"cd ..        - go to previous directory"<<endl<<
 		"format disk  - clear disk"<<endl<<
 		"show memory  - memory state"<<endl<<
-		"length of <file> and <folder> should be equal 7"<<endl;
+		"length of <file> and <folder> should be equal 7"<<endl<<
+		"in a name of file should be . after 3rd symbol of name. for example <fil.txt>"<<endl<<
+		"in a name of folder shouldn't be . for example <folder1>"<<endl<<
+		"type <exit> or <quit> for exit from program"<<endl;
 }
 
 void tryParseCommand(string command)
@@ -488,4 +552,26 @@ void tryParseCommand(string command)
 	else {
 		cout<<"nonexistent command"<<endl;
 	}
+}
+
+int searchNeedNumberOfSegments(unsigned int numberOfNeedSegment)
+{
+	//возвращаем количество свободных сегментов и -1 если их меньше чем нужно для записи
+	ifstream ifsfree;
+	ifsfree.open("disk.dat", ios::binary);
+	Head headFree;
+	unsigned int number = 0;
+	for (int i =0; i < 20; i++){
+		ifsfree.read(reinterpret_cast<char*>(&headFree), sizeof(headFree));
+		if(headFree.segmentState == 0){
+			//cout<<"free segment: "<< headFree.numSegment<<endl;
+			number++;
+		}
+		ifsfree.seekg(BUFSIZE + sizeof(unsigned short), ios::cur);
+	}
+	ifsfree.close();
+	if (number >= numberOfNeedSegment)
+		return number;
+	else
+		return -1;
 }
