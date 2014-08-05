@@ -75,6 +75,8 @@ int main()
 		createDisk();
 		createFile("txt.txt");
 		writeInFile("txt.txt");
+		cout<<"read:"<<endl;
+		readFromFile("txt.txt");
 		showMemory();
 		/*string str1 = "I love Mom";
 		string str2 = str1.substr(0, 3);
@@ -254,7 +256,7 @@ int writeInFile(string fileNameShouldBeOpen)
 	cout<<"Type a text"<<endl;
 	string textInFile;
 	getline(cin,textInFile);
-	if (textInFile.size() <= BUFSIZE -1){
+	/*if (textInFile.size() <= BUFSIZE -1){
 		fstr.seekg(adress * SIZEOFCLUSTER, ios::beg);
 		Head headFileForWriting;
 		fstr.read(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
@@ -263,7 +265,7 @@ int writeInFile(string fileNameShouldBeOpen)
 		fstr.write(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
 		fstr.write(textInFile.c_str(), textInFile.size());	
 	}
-	else {
+	else {*/
 		unsigned int blocksNumber= (unsigned int)(ceil((double)textInFile.size()/BUFSIZE));
 		if (searchNeedNumberOfSegments(blocksNumber) == -1){
 			cout<<"It is haven't enough memory for writing"<<endl;
@@ -297,7 +299,7 @@ int writeInFile(string fileNameShouldBeOpen)
 				fstr.write(reinterpret_cast<char* >(&nextAddress), 2);
 				adress = nextAddress;
 				//уменьшаем строку
-				textInFile = textInFile.substr(BUFSIZE-1, textInFile.size());
+				textInFile = textInFile.substr(BUFSIZE, textInFile.size());
 				Head headExtensionSegment;
 				headExtensionSegment.numSegment =	adress;
 				headExtensionSegment.dataSize =		textInFile.size();
@@ -309,7 +311,7 @@ int writeInFile(string fileNameShouldBeOpen)
 
 		}
 		cout<<"the owerflow segment was"<<endl;
-	}
+	//}
 
 
 	fstr.close();
@@ -354,15 +356,19 @@ int readFromFile(string fileShouldBeOpen)
 		fstr.close();
 		return -1;
 	}
-	if (headFileForReading.dataSize <= BUFSIZE){
-		char buffer[BUFSIZE];
-		fstr.read(reinterpret_cast<char*>(buffer), headFileForReading.dataSize );
+	unsigned int blocksNumber= (unsigned int)(ceil((double)headFileForReading.dataSize/BUFSIZE));
+	char buffer[BUFSIZE];
+	for (int i =0; i < blocksNumber; i++) {
+		fstr.read(reinterpret_cast<char*>(buffer), (headFileForReading.dataSize > BUFSIZE) ? BUFSIZE : headFileForReading.dataSize );
 		string strFromFile(buffer);
-		cout<<strFromFile<<endl;
-	}
-	else {
-		cout<<"Now we haven't such ability"<<endl;
-	}
+		cout<<strFromFile;
+		fstr.read(reinterpret_cast<char*>(&adress), sizeof(unsigned short) );
+		//переходим в новый сегмент
+		fstr.seekg(adress*SIZEOFCLUSTER, ios::beg);
+		fstr.read(reinterpret_cast<char*>(&headFileForReading), sizeof(headFileForReading) );
+		}
+		cout<<endl;
+	//}
 
 	fstr.close();
 	return 1;
