@@ -55,7 +55,7 @@ int searchNeedNumberOfSegments(unsigned int numbedOfSegment);
 
 int main()
 {
-		if (_access("disk.dat",0) == -1){
+		/*if (_access("disk.dat",0) == -1){
 			createDisk();
 		}
 		else {
@@ -68,8 +68,13 @@ int main()
 				break;
 			tryParseCommand(command);
 		}
-	
-	//system("pause");
+	*/
+	createDisk();
+	createFile("txt.txt");
+	writeInFile("txt.txt");
+	readFromFile("txt.txt");
+	showMemory();
+	system("pause");
 	return 0;
 }
 
