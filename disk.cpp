@@ -55,7 +55,6 @@ int searchNeedNumberOfSegments(unsigned int numbedOfSegment);
 
 int main()
 {
-	if (0){
 		if (_access("disk.dat",0) == -1){
 			createDisk();
 		}
@@ -69,23 +68,8 @@ int main()
 				break;
 			tryParseCommand(command);
 		}
-	}
-	else
-	{
-		createDisk();
-		createFile("txt.txt");
-		writeInFile("txt.txt");
-		cout<<"read:"<<endl;
-		readFromFile("txt.txt");
-		showMemory();
-		/*string str1 = "I love Mom";
-		string str2 = str1.substr(0, 3);
-		string str3 = str1.substr(3, str1.size());
-		cout<<str1.size()<<endl<<
-			str2<< " :"<<str2.size()<<endl<<
-			str3<<" :"<<str3.size()<<endl;*/
-	}
-	system("pause");
+	
+	//system("pause");
 	return 0;
 }
 
@@ -97,7 +81,7 @@ void showMemory()
 	unsigned short val1;
 	for (int i =0; i < 20; i++){
 		ifs.read(reinterpret_cast<char*>(&headFirst), sizeof(headFirst));
-		cout<<"num segment: "<<headFirst.numSegment<<endl<<"seg mode:    "<<headFirst.segmentState<<endl<<"seg size:    "<<headFirst.dataSize<<endl;
+		showHead(headFirst);
 		ifs.seekg(BUFSIZE, ios::cur);
 		ifs.read(reinterpret_cast<char*>(&val1), sizeof(val1));
 		cout<<"last 2 bites: "<<val1<<endl;
@@ -256,16 +240,6 @@ int writeInFile(string fileNameShouldBeOpen)
 	cout<<"Type a text"<<endl;
 	string textInFile;
 	getline(cin,textInFile);
-	/*if (textInFile.size() <= BUFSIZE -1){
-		fstr.seekg(adress * SIZEOFCLUSTER, ios::beg);
-		Head headFileForWriting;
-		fstr.read(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
-		headFileForWriting.dataSize = textInFile.size() + 1; // + null symbol
-		fstr.seekp(adress * SIZEOFCLUSTER, ios::beg);
-		fstr.write(reinterpret_cast<char*>(&headFileForWriting), sizeof(headFileForWriting));
-		fstr.write(textInFile.c_str(), textInFile.size());	
-	}
-	else {*/
 		unsigned int blocksNumber= (unsigned int)(ceil((double)textInFile.size()/BUFSIZE));
 		if (searchNeedNumberOfSegments(blocksNumber) == -1){
 			cout<<"It is haven't enough memory for writing"<<endl;
@@ -291,7 +265,7 @@ int writeInFile(string fileNameShouldBeOpen)
 			}
 			fstr.write(currentWritingStr.c_str(), currentWritingStr.size());
 			unsigned short nextAddress =  searchFreeSegment();
-			cout<<"nextAddress: "<<nextAddress<<endl;
+			//cout<<"nextAddress: "<<nextAddress<<endl;
 			// пишем адресс следущего сегмента в конец текущего сегмента
 			if(textInFile.size()> (BUFSIZE - 1)){ 
 				//fstr.seekp(0);
@@ -310,8 +284,7 @@ int writeInFile(string fileNameShouldBeOpen)
 			adress = nextAddress;
 
 		}
-		cout<<"the owerflow segment was"<<endl;
-	//}
+
 
 
 	fstr.close();
